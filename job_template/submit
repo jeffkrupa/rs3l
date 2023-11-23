@@ -1,0 +1,15 @@
+universe = vanilla
+executable = master.sh
+should_transfer_files = YES
+transfer_input_files = XXX/myextrafiles.tar, ./deepjet-geometric.tgz
+transfer_output_files = ""
+request_memory = 2 GB
+input = /dev/null
+output = XXX/$(ClusterId).$(ProcId).out
+error = XXX/$(ClusterId).$(ProcId).err
+log = XXX/$(ClusterId).$(ProcId).log
+arguments = $(infile) XXX
+x509userproxy = /home/jeffkrupa/x509up_u156030
+use_x509userproxy = True
++REQUIRED_OS = "rhel7"
+queue infile from WWW/missing_files.txt

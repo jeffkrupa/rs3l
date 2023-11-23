@@ -1,0 +1,9 @@
+IDIR=root://xrootd.cmsaf.mit.edu:1094/AAA/
+ODIR=/eos/project/c/contrast/public/cl/analysis/outfiles/XXX
+BEST_EPOCH=ZZZ/best-epoch.pt
+TEMPERATURE=0.1
+N_OUTPUT_NODES=8
+SEED_ONLY=0
+QCD_ONLY=0
+KINEMATICS_ONLY=0
+ABSETA=0

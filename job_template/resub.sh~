@@ -1,0 +1,15 @@
+iname=$1
+stripped_base=$(basename $iname)
+
+sed "s|ZZZ|${iname}|g" environ_template.sh > ${iname}/environ.sh
+sed -i "s|XXX|${stripped_base}_mar20_finetuning_test|g" ${iname}/environ.sh
+
+#ls -l ${iname}/environ.sh
+source ${iname}/environ.sh
+
+xrdfs root://xrootd.cmsaf.mit.edu:1094/ ls /store/user/jkrupa/cl/infiles/mar20_finetuning_test  | awk -F/ '{print $NF}' > flat_infiles.txt
+#xrdfs root://eosuser.cern.ch/ mkdir /eos/project/c/contrast/public/cl/analysis/outfiles/${oname}_${iname}/
+
+#. get_missing.sh flat_infiles.txt > missing_files.txt 
+#tar czf deepjet-geometric.tgz ./deepjet-geometric
+#condor_submit submit
