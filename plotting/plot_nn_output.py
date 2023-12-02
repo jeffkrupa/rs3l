@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import awkward as ak
+from sklearn.metrics import auc
 import subprocess
 sns.set_context("paper")
 import mplhep as hep
@@ -17,9 +18,10 @@ import json
 matplotlib.use('agg')
 import tqdm
 plt.style.use(hep.style.CMS)
-import argparse
+import argparse, csv
 from matplotlib import gridspec
 from plot_utils import *
+import matplotlib.cm as cm
 #fig_size = plt.rcParams["figure.figsize"]
 #fig_size[0] = 9
 #fig_size[1] = 9
@@ -27,6 +29,7 @@ from plot_utils import *
 
 plt.style.use('/afs/cern.ch/user/j/jekrupa/public/rs3l/plotting/rs3l.mplstyle')
 
+nn_bins = np.concatenate((np.linspace(-0.001,0.00001,1000),np.linspace(0.00001,0.99999,1000),np.linspace(0.99999,1.0001,1000)))
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--ipath', action='store', type=str, help="Path to h5 files")
@@ -35,15 +38,27 @@ parser.add_argument('--which_qcd', action='store', type=str, default="all", help
 args = parser.parse_args()
 
 
-
-
 training = get_last_part_of_ipath(args.ipath)
+is_wz = "wz_zz" in args.ipath
+if is_wz:
+   sig_name = "z"
+   bkg_name = "w"
+else:
+   sig_name = "higgs"
+   bkg_name = "qcd"
+
 is_n2 = args.is_n2
 which_qcd = args.which_qcd
 
 os.system(f"mkdir /eos/project/c/contrast/public/cl/www/analysis/{training}")
 os.system(f"cp /eos/project/c/contrast/public/cl/www/index.php /eos/project/c/contrast/public/cl/www/analysis/{training}/index.php")
 
+label_dict = {
+  "w" : "W",
+  "z" : "Z",
+  "higgs" : "H",
+  "qcd" : "QCD",
+}
 var_label_to_name = {
    -1 : "nominal",
    0 : "seed",
@@ -60,8 +75,8 @@ def read_files(process,variation,variable):
     arr = None
     counter = 0
 
-    pattern = "%s/*h5"%(args.ipath)
-    print(pattern)
+    pattern = "%s/*.h5"%(args.ipath)
+    #pattern = "%s/*h5"%(args.ipath)
     for i in tqdm.tqdm(glob.glob(pattern)):
         counter += 1
 
@@ -75,10 +90,17 @@ def read_files(process,variation,variable):
                 vartype = f['jet_vartype'][()]
                 sel = (vartype==variation) 
                 jettype = f['jet_type'][()]
-                if "higgs" in process:
-                    sel &= (jettype==4) 
-                elif "qcd" in process: 
-                    sel &= (jettype!=4) 
+                if is_wz:
+                    if "w" in process:
+                        sel &= (jettype==11)
+                    elif "z" in process:
+                        sel &= (jettype==10)
+                else:
+                    if "higgs" in process:
+                        sel &= (jettype==4) 
+                    elif "qcd" in process: 
+                        sel &= (jettype!=4) 
+                        
                 feat = feat[sel]
                 feat = np.expand_dims(feat,axis=-1)
                 if arr is None:
@@ -87,7 +109,6 @@ def read_files(process,variation,variable):
                     arr = np.concatenate((arr,feat))
         except:
             print(f"file {i} doesn't open, skipping...") 
-    #print(arr)
     if arr is None:
         print("Array is empty!")
         sys.exit()
@@ -104,6 +125,63 @@ binedges_global = [0,1,30]
 if is_n2:
     binedges_global = [0.02,0.48,30]
 
+tprs = {}
+fprs = {} 
+
+def get_tpr_fpr(reverse=False,):
+
+    for var in ["nominal","fsrRenHi","fsrRenLo","herwig"]:
+        sig_csv = f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{sig_name}_{var}.csv"
+        bkg_csv = f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{bkg_name}_{var}.csv"
+    
+        df_sig = np.array(pd.read_csv(sig_csv)['val'].values.tolist())
+        df_bkg = np.array(pd.read_csv(bkg_csv)['val'].values.tolist())
+    
+        for i in nn_bins:
+            if not reverse:
+                tpr = (df_sig >= i).sum()/len(df_sig)
+                fpr = (df_bkg >= i).sum()/len(df_bkg)
+            else:
+                tpr = (df_sig <= i).sum()/len(df_sig)
+                fpr = (df_bkg <= i).sum()/len(df_bkg)
+            if '%s_%s'%(training,var) not in tprs:
+                tprs['%s_%s'%(training,var)] = []
+                tprs['%s_%s'%(training,var)].append(tpr)
+                fprs['%s_%s'%(training,var)] = []
+                fprs['%s_%s'%(training,var)].append(fpr)
+            else:
+                tprs['%s_%s'%(training,var)].append(tpr)
+                fprs['%s_%s'%(training,var)].append(fpr)
+    
+        plt.clf() 
+        fig,ax = plt.subplots()
+        ax.plot(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)],
+            label=" AUC=%.4f"%(1.-auc(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)])),color="black",linewidth=2,alpha=1.)
+      
+        ax.text(0.2,0.7,var,transform=ax.transAxes) 
+        ax.set_xlabel(f"{label_dict[sig_name]} acceptance",fontsize=24) 
+        ax.set_ylabel(f"{label_dict[bkg_name]} fake rate",fontsize=24)
+        plt.grid(which='both')
+        plt.legend(fontsize=16)
+        if is_wz: 
+            ax.set_ylim([0.001,1.002])
+            ax.set_xlim([0.001,1.002])
+        else:
+            ax.set_ylim([0.003,.08])
+            ax.set_xlim([0.25,1.03])
+        plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/ROC_{sig_name}_vs_{bkg_name}_{var}.png",dpi=300,bbox_inches='tight')
+        plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/ROC_{sig_name}_vs_{bkg_name}_{var}.pdf",dpi=300,bbox_inches='tight')
+        ax.set_yscale('log')
+        plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/ROC_{sig_name}_vs_{bkg_name}_{var}_log.png",dpi=300,bbox_inches='tight')
+        plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/ROC_{sig_name}_vs_{bkg_name}_{var}_log.pdf",dpi=300,bbox_inches='tight')
+
+        roc_csv = sig_csv.replace(sig_name,"ROC")
+        with open(roc_csv, 'w', newline='') as file:
+            writer = csv.writer(file)
+
+            for a1, a2 in zip(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)]):
+                writer.writerow([a1,a2])
+
 def plot(axis,process,variation,variable,binedges,color,label,show=True):
 
     #print("In plotting function")
@@ -112,7 +190,7 @@ def plot(axis,process,variation,variable,binedges,color,label,show=True):
     #sys.exit(1)
     tmpdict = {'val':np.squeeze(arr)}
     tmpdf = pd.DataFrame.from_dict(tmpdict)
-    oname=f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{process}_{var_label_to_name[variation]}_{which_qcd}.csv" 
+    oname=f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{process}_{var_label_to_name[variation]}.csv" 
     tmpdf.to_csv(oname)
         
     bins = np.linspace(binedges_global[0],binedges_global[1],binedges_global[2])
@@ -121,9 +199,9 @@ def plot(axis,process,variation,variable,binedges,color,label,show=True):
     
     #print(y,x,dummy)
     if show:
-        _ = plot_binned_data(axis, bins, y, histtype="step",stacked=False,color=color,label=label,linewidth=1.3,rwidth=2)
+        _ = plot_binned_data(axis, bins, y, histtype="step",stacked=False,color=color,label=label,linewidth=1.3,rwidth=2,linestyle="-")
     else:
-        _ = plot_binned_data(axis, bins, y, histtype="step",stacked=False,color=color,linewidth=1.3,rwidth=2,alpha=0.)
+        _ = plot_binned_data(axis, bins, y, histtype="step",stacked=False,color=color,linewidth=1.3,rwidth=2,alpha=0.,linestyle="-")
         
     hist_dict[f'{str(variable)}_{process}_{var_label_to_name[variation]}'] = _
 
@@ -157,7 +235,7 @@ def plot_ratio(axis,process1,variation1,process2,variation2,variable,binedges,co
         fill_between_steps(axis,bins, y, binentries , step_where="post",color=color,zorder=0)
         #print(lower)
         #plot_binned_data(axis, bins, lower, histtype="step",stacked=False,color='white',linewidth=1.6,rwidth=2)
-    axis.text(0.03,0.7,text,transform=axis.transAxes,fontsize=14)
+    axis.text(0.03,0.7,text,transform=axis.transAxes,fontsize=10)
 
 fig = plt.figure(figsize=(8,6))
 
@@ -171,8 +249,11 @@ ax_ratio6 = plt.subplot(gs[6])
 ax.xaxis.set_zorder(99) 
 ax.set_yscale('log')
 
-qcd_label = {
-  "all" : "QCD",
+label_dict = {
+  "w" : "W",
+  "z" : "Z",
+  "higgs" : "H",
+  "qcd" : "QCD",
   "1" : "q",
   "2" : "c",
   "3" : "b",
@@ -183,38 +264,32 @@ qcd_label = {
 }
 qcd_legend_label = "QCD"
 if which_qcd != 'all':
-    qcd_legend_label += " [{qcd_label[which_qcd]}]"
-plot(ax,'qcd',-1,whichfeat,[0.05,0.5,30],'steelblue',f'QCD [{qcd_label[which_qcd]}]')
-plot(ax,'higgs',-1,whichfeat,[0.05,0.5,30],'magenta','Higgs')
-plot(ax,'qcd',0,whichfeat,[0.05,0.5,30],'yellow',0,False)
-plot(ax,'higgs',0,whichfeat,[0.05,0.5,30],'yellow',0,False)
-plot(ax,'qcd',1,whichfeat,[0.05,0.5,30],'yellow','fsrRenHi',False)
-plot(ax,'qcd',2,whichfeat,[0.05,0.5,30],'yellow','fsrRenLo',False)
-plot(ax,'higgs',1,whichfeat,[0.05,0.5,30],'yellow','fsrRenHi',False)
-plot(ax,'higgs',2,whichfeat,[0.05,0.5,30],'yellow','fsrRenLo',False)
-plot(ax,'qcd',3,whichfeat,[0.05,0.5,30],'yellow','herwig',False)
-plot(ax,'higgs',3,whichfeat,[0.05,0.5,30],'yellow','herwig',False)
+    qcd_legend_label += " {label_dict[which_qcd]}"
+NBINS=30
+
+plot(ax,bkg_name,-1,whichfeat,[0.05,0.5,30],'steelblue',label_dict[bkg_name])
+plot(ax,sig_name,-1,whichfeat,[0.05,0.5,30],'magenta',label_dict[sig_name])
+plot(ax,bkg_name,0,whichfeat,[0.05,0.5,30],'yellow',0,False)
+plot(ax,sig_name,0,whichfeat,[0.05,0.5,30],'yellow',0,False)
+plot(ax,bkg_name,1,whichfeat,[0.05,0.5,30],'yellow','fsrRenHi',False)
+plot(ax,bkg_name,2,whichfeat,[0.05,0.5,30],'yellow','fsrRenLo',False)
+plot(ax,sig_name,1,whichfeat,[0.05,0.5,30],'yellow','fsrRenHi',False)
+plot(ax,sig_name,2,whichfeat,[0.05,0.5,30],'yellow','fsrRenLo',False)
+plot(ax,bkg_name,3,whichfeat,[0.05,0.5,30],'yellow','herwig',False)
+plot(ax,sig_name,3,whichfeat,[0.05,0.5,30],'yellow','herwig',False)
+
+
+plot_ratio(ax_ratio1,bkg_name,-1,bkg_name,0,whichfeat,[0.05,0.5,NBINS],'springgreen',f"seed [{label_dict[bkg_name]}]")
+plot_ratio(ax_ratio2,sig_name,-1,sig_name,0,whichfeat,[0.05,0.5,NBINS],'indigo',f"seed [{label_dict[sig_name]}]",)
+plot_ratio(ax_ratio3,bkg_name,-1,bkg_name,1,whichfeat,[0.05,0.5,NBINS],'springgreen',f"FSR [{label_dict[bkg_name]}]",doboth=True,other=2)
+plot_ratio(ax_ratio4,sig_name,-1,sig_name,1,whichfeat,[0.05,0.5,NBINS],'indigo',f"FSR [{label_dict[sig_name]}]",doboth=True,other=2)
+plot_ratio(ax_ratio5,bkg_name,-1,bkg_name,3,whichfeat,[0.05,0.5,NBINS],'springgreen',f"Herwig7 [{label_dict[bkg_name]}]")
+plot_ratio(ax_ratio6,sig_name,-1,sig_name,3,whichfeat,[0.05,0.5,NBINS],'indigo',f"Herwig7 [{label_dict[sig_name]}]")
 
 label = "NN output"
 if is_n2:
     label = "$N_2$"
 ax_ratio6.set_xlabel(label)
-ax.set_ylabel("Norm. to unit area",fontsize=21)
-ax.legend(loc=(0.4,0.2))
-
-#plot_ratio(ax_ratio1,'qcd','nominal','qcd','fsrRenHi',whichfeat,[0.05,0.5,30],'salmon',"$\mu(FSR)$ [QCD]",doboth=True,other='fsrRenLo')
-#plot_ratio(ax_ratio2,'higgs','nominal','higgs','fsrRenHi',whichfeat,[0.05,0.5,30],'steelblue',"$\mu(FSR)$ [Higgs]",doboth=True,other='fsrRenLo')
-#plot_ratio(ax_ratio3,'qcd','nominal','qcd','herwig',whichfeat,[0.05,0.5,30],'salmon',"Herwig7 [QCD]")
-#plot_ratio(ax_ratio4,'higgs','nominal','higgs','herwig',whichfeat,[0.05,0.5,30],'steelblue',"Herwig7 [Higgs]")
-NBINS=30
-
-
-plot_ratio(ax_ratio1,'qcd',-1,'qcd',0,whichfeat,[0.05,0.5,NBINS],'springgreen',f"seed [{qcd_label[which_qcd]}]")
-plot_ratio(ax_ratio2,'higgs',-1,'higgs',0,whichfeat,[0.05,0.5,NBINS],'indigo',f"seed [H]",)
-plot_ratio(ax_ratio3,'qcd',-1,'qcd',1,whichfeat,[0.05,0.5,NBINS],'springgreen',f"FSR [{qcd_label[which_qcd]}]",doboth=True,other=2)
-plot_ratio(ax_ratio4,'higgs',-1,'higgs',1,whichfeat,[0.05,0.5,NBINS],'indigo',f"FSR [H]",doboth=True,other=2)
-plot_ratio(ax_ratio5,'qcd',-1,'qcd',3,whichfeat,[0.05,0.5,NBINS],'springgreen',f"Herwig7 [{qcd_label[which_qcd]}]")
-plot_ratio(ax_ratio6,'higgs',-1,'higgs',3,whichfeat,[0.05,0.5,NBINS],'indigo',f"Herwig7 [H]")
 axxes = [ax_ratio1,ax_ratio2,ax_ratio3,ax_ratio4,ax_ratio5,ax_ratio6]
 
 #print(hist_dict)
@@ -231,14 +306,15 @@ for axx in axxes:
         axx.set_ylabel("Variation/Nominal",fontsize=13)
     if axx != axxes[-1]:
         axx.xaxis.set_ticklabels([])
-    #if axx == axxes[-1] or axx == axxes[-2]:
-    #    axx.set_ylim([0.,2.])
-    #else:
-    #    axx.set_ylim([0.,2.])
-    axx.set_ylim([0,2])
+    if axx == axxes[-1] or axx == axxes[-2]:
+        axx.set_ylim([0,2])
 
-    axx.set_yticks([0.5,1.5])
-    axx.set_yticklabels(["0.5","1.5"])
+        axx.set_yticks([0.5,1.5])
+        axx.set_yticklabels(["0.5","1.5"])
+    else:
+        axx.set_ylim([0.8,1.2])
+        axx.set_yticks([0.9,1.1])
+        axx.set_yticklabels(["0.9","1.1"])
 
     axx.set_xlim([binedges_global[0],binedges_global[1]]) 
     #axx.yaxis.set_ticklabels(['0.5','1.0','1.5'],fontsize=12)
@@ -251,7 +327,15 @@ if is_n2:
 if which_qcd != "all":
     label = label+"_"+which_qcd
 
+ax.set_ylabel("Norm. to unit area",fontsize=21,labelpad=20)
+ylabel = ax.get_yaxis().get_label()
+x, y = ylabel.get_position()
+ylabel.set_position((x, y - 0.15))  # You can adjust the 0.1 to whatever works best
+
+ax.legend(loc=(0.41,0.65))
+
 plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{label}.png",dpi=300,bbox_inches='tight')
 plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{label}.pdf",dpi=300,bbox_inches='tight')
 
-
+get_tpr_fpr()
+#print(tprs,fprs)
