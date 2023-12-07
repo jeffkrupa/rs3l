@@ -29,7 +29,9 @@ import matplotlib.cm as cm
 
 plt.style.use('/afs/cern.ch/user/j/jekrupa/public/rs3l/plotting/rs3l.mplstyle')
 
-nn_bins = np.concatenate((np.linspace(-0.001,0.00001,1000),np.linspace(0.00001,0.99999,1000),np.linspace(0.99999,1.0001,1000)))
+nn_bins = np.concatenate((np.linspace(-0.001,0.00001,1000),np.linspace(0.00001,0.99999,10000),np.linspace(0.99999,1.0001,1000)))
+which_sig_effs = [0.9,0.8,0.7,0.6,0.5]
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--ipath', action='store', type=str, help="Path to h5 files")
@@ -127,6 +129,47 @@ if is_n2:
 
 tprs = {}
 fprs = {} 
+
+def get_unc(reverse=False,):
+
+    base=f"/eos/project/c/contrast/public/cl/www/analysis/{training}/"
+    fpr_dict,pct_fpr_change = {}, {}
+    tpr_dict,pct_tpr_change = {}, {}
+    for variation in ["nominal","fsrRenHi","fsrRenLo","herwig"]:
+        with open(f"{base}/ROC_{variation}.csv", 'r') as file:
+            counter = 0 
+            reader = csv.reader(file)
+            rows = list(reader)
+            for sig_eff in which_sig_effs:
+                for index, row in enumerate(rows):
+    
+                    if index == 0 or index == len(rows)-1: 
+                        continue
+    
+                    if float(rows[index][0]) >= sig_eff and float(rows[index+1][0]) < sig_eff :
+                        tpr_dict[f"{sig_eff}_{variation}"] = float(rows[index][0])                  
+                        fpr_dict[f"{sig_eff}_{variation}"] = float(rows[index][1])                  
+                        break
+
+    for sig_eff in which_sig_effs: 
+        for variation in ["fsrRenHi","fsrRenLo","herwig"]:
+            pct_tpr_change[f"{sig_eff}_{variation}"] = (tpr_dict[f"{sig_eff}_{variation}"] - tpr_dict[f"{sig_eff}_nominal"] ) / (tpr_dict[f"{sig_eff}_nominal"]) 
+            pct_fpr_change[f"{sig_eff}_{variation}"] = (fpr_dict[f"{sig_eff}_{variation}"] - fpr_dict[f"{sig_eff}_nominal"] ) / (fpr_dict[f"{sig_eff}_nominal"])
+
+    efficiencies = set(key.split('_')[0] for key in pct_fpr_change.keys())
+    variations = set(key.split('_')[1] for key in pct_fpr_change.keys())
+    csv_data = {variation: {eff: pct_fpr_change.get(f"{eff}_{variation}", None) for eff in efficiencies} for variation in variations}
+    sorted_variations = sorted(csv_data.keys())    
+    # Writing to CSV
+    csv_file = f"{base}/change_in_fpr.csv"
+    with open(csv_file, "w", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=["Variation"] + sorted(efficiencies))
+        writer.writeheader()
+
+        for variation in sorted_variations:
+            row = {"Variation": variation}
+            row.update(csv_data[variation])
+            writer.writerow(row) 
 
 def get_tpr_fpr(reverse=False,):
 
@@ -338,4 +381,5 @@ plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{label}.
 plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{label}.pdf",dpi=300,bbox_inches='tight')
 
 get_tpr_fpr()
+get_unc()
 #print(tprs,fprs)
