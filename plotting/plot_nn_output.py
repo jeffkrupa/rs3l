@@ -22,6 +22,7 @@ import argparse, csv
 from matplotlib import gridspec
 from plot_utils import *
 import matplotlib.cm as cm
+
 #fig_size = plt.rcParams["figure.figsize"]
 #fig_size[0] = 9
 #fig_size[1] = 9
@@ -29,35 +30,55 @@ import matplotlib.cm as cm
 
 plt.style.use('/afs/cern.ch/user/j/jekrupa/public/rs3l/plotting/rs3l.mplstyle')
 
-nn_bins = np.concatenate((np.linspace(-0.001,0.00001,1000),np.linspace(0.00001,0.99999,10000),np.linspace(0.99999,1.0001,1000)))
+
 which_sig_effs = [0.9,0.8,0.7,0.6,0.5]
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--ipath', action='store', type=str, help="Path to h5 files")
+parser.add_argument('--draw_feat', action='store', default=None, type=int, help="Feat to plot")
 parser.add_argument('--is_n2', action='store_true', default=False, help="Plotting N2")
 parser.add_argument('--which_qcd', action='store', type=str, default="all", help="All or specific qcd jet type 1..3, 5..8")
 args = parser.parse_args()
 
+nn_bins = np.concatenate((np.linspace(-0.001,0.00001,1000),np.linspace(0.00001,0.99999,10000),np.linspace(0.99999,1.0001,1000)))
+if args.is_n2:
+    nn_bins = np.linspace(0,1,1000)
 
 training = get_last_part_of_ipath(args.ipath)
 is_wz = "wz_zz" in args.ipath
+is_wqcd = "wz_qcd" in args.ipath
+is_hqcd = "h_qcd" in args.ipath
+
 if is_wz:
-   sig_name = "z"
+   sig_name = "Z"
    bkg_name = "w"
-else:
+elif is_wqcd:
+   sig_name = "W"
+   bkg_name = "qcd"
+
+elif is_hqcd:
    sig_name = "higgs"
    bkg_name = "qcd"
 
 is_n2 = args.is_n2
 which_qcd = args.which_qcd
 
-os.system(f"mkdir /eos/project/c/contrast/public/cl/www/analysis/{training}")
-os.system(f"cp /eos/project/c/contrast/public/cl/www/index.php /eos/project/c/contrast/public/cl/www/analysis/{training}/index.php")
+os.system(f"mkdir /eos/project/c/contrast/public/cl/www/analysis/dec23/{training}")
+os.system(f"cp /eos/project/c/contrast/public/cl/www/index.php /eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/index.php")
+
+index_to_feat = {
+    0 : "Jet $p_\mathrm{T}\\ \mathrm{(GeV)}$" , # "$\mathrm{Jet\\ p_T\\ (GeV)}$",
+    1 : "$\mathrm{Jet\\ \eta}$",
+    2 : "$\mathrm{Jet\\ \phi}$",
+    3 : "$\mathrm{Jet\\ energy\\ (GeV)}$",
+    4 : "$\mathrm{Jet\\ m_{SD}\\ (GeV)}$",
+    5 : "$\mathrm{Jet\\ N_2}$",
+}
 
 label_dict = {
-  "w" : "W",
-  "z" : "Z",
+  "W" : "W",
+  "Z" : "Z",
   "higgs" : "H",
   "qcd" : "QCD",
 }
@@ -81,11 +102,18 @@ def read_files(process,variation,variable):
     #pattern = "%s/*h5"%(args.ipath)
     for i in tqdm.tqdm(glob.glob(pattern)):
         counter += 1
-
-        try:
+        #print("hello")
+        if 1: #try:
             with h5py.File(i,'r') as f:
-                if variable == 'n2':
-                    feat = f['jet_kinematics'][()][:,-1]
+                #if variable == 'n2':
+                if args.draw_feat is not None:
+                    #print(f['jet_kinematics'][()])
+                    feat = f['jet_kinematics'][()][:,args.draw_feat]
+                    feat = np.expand_dims(feat,axis=-1)
+                    #print(feat)
+                elif args.is_n2:
+                    feat = f['jet_kinematics'][()][:,5]
+                    feat = np.expand_dims(feat,axis=-1)
                 else:
                     feat = f['jet_features'][()]
                 
@@ -93,10 +121,15 @@ def read_files(process,variation,variable):
                 sel = (vartype==variation) 
                 jettype = f['jet_type'][()]
                 if is_wz:
-                    if "w" in process:
+                    if "W" in process:
                         sel &= (jettype==11)
-                    elif "z" in process:
+                    elif "Z" in process:
                         sel &= (jettype==10)
+                if is_wqcd:
+                    if "W" in process:
+                        sel &= (jettype==11)
+                    elif "qcd" in process:
+                        sel &= (jettype!=11)
                 else:
                     if "higgs" in process:
                         sel &= (jettype==4) 
@@ -109,8 +142,8 @@ def read_files(process,variation,variable):
                     arr = feat
                 else:
                     arr = np.concatenate((arr,feat))
-        except:
-            print(f"file {i} doesn't open, skipping...") 
+        #except:
+        #    print(f"file {i} doesn't open, skipping...") 
     if arr is None:
         print("Array is empty!")
         sys.exit()
@@ -122,17 +155,18 @@ hist_dict = {}
 
 
 gs = gridspec.GridSpec(7, 1, height_ratios=[1.8,0.5,0.5,0.5,0.5,0.5,0.5,])
-
-binedges_global = [0,1,30]
-if is_n2:
-    binedges_global = [0.02,0.48,30]
+#global binedges_global
+binedges_global = -1
+#binedges_global = [0,1,30]
+#if is_n2:
+#    binedges_global = [0.02,0.48,30]
 
 tprs = {}
 fprs = {} 
 
 def get_unc(reverse=False,):
 
-    base=f"/eos/project/c/contrast/public/cl/www/analysis/{training}/"
+    base=f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/"
     fpr_dict,pct_fpr_change = {}, {}
     tpr_dict,pct_tpr_change = {}, {}
     for variation in ["nominal","fsrRenHi","fsrRenLo","herwig"]:
@@ -171,12 +205,18 @@ def get_unc(reverse=False,):
             row.update(csv_data[variation])
             writer.writerow(row) 
 
-def get_tpr_fpr(reverse=False,):
+def get_tpr_fpr():
 
     for var in ["nominal","fsrRenHi","fsrRenLo","herwig"]:
-        sig_csv = f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{sig_name}_{var}.csv"
-        bkg_csv = f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{bkg_name}_{var}.csv"
-    
+        sig_csv = f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{sig_name}_{var}.csv"
+        bkg_csv = f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{bkg_name}_{var}.csv"
+        if args.is_n2:
+            sig_csv = sig_csv.replace(".csv","_n2.csv")
+            bkg_csv = bkg_csv.replace(".csv","_n2.csv")
+            reverse=True
+        else:
+            reverse=False
+        print(args.is_n2,var,reverse)   
         df_sig = np.array(pd.read_csv(sig_csv)['val'].values.tolist())
         df_bkg = np.array(pd.read_csv(bkg_csv)['val'].values.tolist())
     
@@ -198,8 +238,15 @@ def get_tpr_fpr(reverse=False,):
     
         plt.clf() 
         fig,ax = plt.subplots()
+        if not reverse:
+            roc_auc = np.trapz(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)])-1
+        else:
+            roc_auc = np.trapz(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)])
+        roc_auc = abs(np.trapz(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)]))
+        #print(reverse, roc_auc, 1.-auc(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)]))
         ax.plot(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)],
-            label=" AUC=%.4f"%(1.-auc(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)])),color="black",linewidth=2,alpha=1.)
+            #label=" AUC=%.4f"%(1.-auc(tprs['%s_%s'%(training,var)],fprs['%s_%s'%(training,var)])),color="black",linewidth=2,alpha=1.)
+            label=f" AUC={roc_auc:.4f}",color="black",linewidth=2,alpha=1.)
       
         ax.text(0.2,0.7,var,transform=ax.transAxes) 
         ax.set_xlabel(f"{label_dict[sig_name]} acceptance",fontsize=24) 
@@ -209,14 +256,22 @@ def get_tpr_fpr(reverse=False,):
         if is_wz: 
             ax.set_ylim([0.001,1.002])
             ax.set_xlim([0.001,1.002])
-        else:
-            ax.set_ylim([0.003,.08])
+        elif is_wqcd: 
+            ax.set_ylim([0.003,0.08])
             ax.set_xlim([0.25,1.03])
-        plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/ROC_{sig_name}_vs_{bkg_name}_{var}.png",dpi=300,bbox_inches='tight')
-        plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/ROC_{sig_name}_vs_{bkg_name}_{var}.pdf",dpi=300,bbox_inches='tight')
+        elif is_hqcd: 
+            ax.set_ylim([0.003,1.03])
+            #ax.set_ylim([0.003,.08])
+            ax.set_xlim([0.25,1.03])
+
+        opath = f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/ROC_{sig_name}_vs_{bkg_name}_{var}"
+        if args.is_n2:
+            opath += "_n2"
+        plt.savefig(opath+".png",dpi=300,bbox_inches='tight')
+        plt.savefig(opath+".pdf",dpi=300,bbox_inches='tight')
         ax.set_yscale('log')
-        plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/ROC_{sig_name}_vs_{bkg_name}_{var}_log.png",dpi=300,bbox_inches='tight')
-        plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/ROC_{sig_name}_vs_{bkg_name}_{var}_log.pdf",dpi=300,bbox_inches='tight')
+        plt.savefig(opath+"_log.png",dpi=300,bbox_inches='tight')
+        plt.savefig(opath+"_log.pdf",dpi=300,bbox_inches='tight')
 
         roc_csv = sig_csv.replace(sig_name,"ROC")
         with open(roc_csv, 'w', newline='') as file:
@@ -233,9 +288,14 @@ def plot(axis,process,variation,variable,binedges,color,label,show=True):
     #sys.exit(1)
     tmpdict = {'val':np.squeeze(arr)}
     tmpdf = pd.DataFrame.from_dict(tmpdict)
-    oname=f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{process}_{var_label_to_name[variation]}.csv" 
+    oname=f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{process}_{var_label_to_name[variation]}.csv" 
+    if args.is_n2:
+        oname = oname.replace(".csv","_n2.csv")
     tmpdf.to_csv(oname)
-        
+    global binedges_global
+    if binedges_global == -1:
+        binedges_global = [np.min(arr),np.max(arr),NBINS]
+    #print(binedges_global) 
     bins = np.linspace(binedges_global[0],binedges_global[1],binedges_global[2])
     #print(bins)
     y, x, dummy = axis.hist(arr,bins=bins,linewidth=1.3,density=True,histtype='step',alpha=0)
@@ -250,7 +310,6 @@ def plot(axis,process,variation,variable,binedges,color,label,show=True):
 
 
 def plot_ratio(axis,process1,variation1,process2,variation2,variable,binedges,color,text=None,doboth=False,other=None):
-
     global binedges_global
     
     bins = np.linspace(binedges_global[0],binedges_global[1],binedges_global[2])
@@ -292,19 +351,19 @@ ax_ratio6 = plt.subplot(gs[6])
 ax.xaxis.set_zorder(99) 
 ax.set_yscale('log')
 
-label_dict = {
-  "w" : "W",
-  "z" : "Z",
-  "higgs" : "H",
-  "qcd" : "QCD",
-  "1" : "q",
-  "2" : "c",
-  "3" : "b",
-  "5" : "g(qq)",
-  "6" : "g(cc)",
-  "7" : "g(bb)",
-  "8" : "g(gg)",
-}
+#label_dict = {
+#  "w" : "W",
+#  "z" : "Z",
+#  "higgs" : "H",
+#  "qcd" : "QCD",
+#  "1" : "q",
+#  "2" : "c",
+#  "3" : "b",
+#  "5" : "g(qq)",
+#  "6" : "g(cc)",
+#  "7" : "g(bb)",
+#  "8" : "g(gg)",
+#}
 qcd_legend_label = "QCD"
 if which_qcd != 'all':
     qcd_legend_label += " {label_dict[which_qcd]}"
@@ -329,7 +388,11 @@ plot_ratio(ax_ratio4,sig_name,-1,sig_name,1,whichfeat,[0.05,0.5,NBINS],'indigo',
 plot_ratio(ax_ratio5,bkg_name,-1,bkg_name,3,whichfeat,[0.05,0.5,NBINS],'springgreen',f"Herwig7 [{label_dict[bkg_name]}]")
 plot_ratio(ax_ratio6,sig_name,-1,sig_name,3,whichfeat,[0.05,0.5,NBINS],'indigo',f"Herwig7 [{label_dict[sig_name]}]")
 
-label = "NN output"
+if args.draw_feat is not None:
+    label = index_to_feat[args.draw_feat]
+else:
+    label = "NN output"
+
 if is_n2:
     label = "$N_2$"
 ax_ratio6.set_xlabel(label)
@@ -349,7 +412,7 @@ for axx in axxes:
         axx.set_ylabel("Variation/Nominal",fontsize=13)
     if axx != axxes[-1]:
         axx.xaxis.set_ticklabels([])
-    if axx == axxes[-1] or axx == axxes[-2]:
+    if 1: # axx == axxes[-1] or axx == axxes[-2]:
         axx.set_ylim([0,2])
 
         axx.set_yticks([0.5,1.5])
@@ -364,7 +427,10 @@ for axx in axxes:
     axx.tick_params(axis='y', which='major', labelsize=12)
     axx.axhline(y=1, linestyle='dashed',color='k')
 
-label = "nn_output"
+if args.draw_feat is not None:
+    label = f"{args.draw_feat}_output"
+else:
+    label = "nn_output"
 if is_n2:
     label = "n2_output"
 if which_qcd != "all":
@@ -377,9 +443,13 @@ ylabel.set_position((x, y - 0.15))  # You can adjust the 0.1 to whatever works b
 
 ax.legend(loc=(0.41,0.65))
 
-plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{label}.png",dpi=300,bbox_inches='tight')
-plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/{training}/{label}.pdf",dpi=300,bbox_inches='tight')
+plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{label}.png",dpi=300,bbox_inches='tight')
+plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{label}.pdf",dpi=300,bbox_inches='tight')
 
-get_tpr_fpr()
-get_unc()
+if args.is_n2:
+    get_tpr_fpr()
+     
+elif args.draw_feat is None:
+    get_tpr_fpr()
+    get_unc()
 #print(tprs,fprs)
