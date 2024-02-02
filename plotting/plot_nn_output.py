@@ -138,16 +138,24 @@ def read_files(process,variation,variable):
                         
                 feat = feat[sel]
                 feat = np.expand_dims(feat,axis=-1)
+                vartype = vartype[sel]
+                vartype = np.expand_dims(vartype,axis=-1)
+                jettype = jettype[sel]
+                jettype = np.expand_dims(jettype,axis=-1)
                 if arr is None:
-                    arr = feat
+                    arr = feat 
+                    arr_vartype = vartype
+                    arr_jettype = jettype
                 else:
                     arr = np.concatenate((arr,feat))
+                    arr_vartype = np.concatenate((arr_vartype,vartype))
+                    arr_jettype = np.concatenate((arr_jettype,jettype))
         #except:
         #    print(f"file {i} doesn't open, skipping...") 
     if arr is None:
         print("Array is empty!")
         sys.exit()
-    return arr
+    return arr, arr_vartype, arr_jettype
 
 hist_dict = {}
 
@@ -283,10 +291,12 @@ def get_tpr_fpr():
 def plot(axis,process,variation,variable,binedges,color,label,show=True):
 
     #print("In plotting function")
-    arr = read_files(process,variation,variable,)
+    arr,arr_vartype,arr_jettype = read_files(process,variation,variable,)
 
+    #print(arr,variation, vartypearr, len(vartypearr))
     #sys.exit(1)
-    tmpdict = {'val':np.squeeze(arr)}
+    tmpdict = {'val':np.squeeze(arr),}#'vartype':np.squeeze(arr_vartype),'arr_jettype':np.squeeze(arr_jettype)}
+
     tmpdf = pd.DataFrame.from_dict(tmpdict)
     oname=f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{process}_{var_label_to_name[variation]}.csv" 
     if args.is_n2:
