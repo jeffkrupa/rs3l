@@ -5,7 +5,7 @@
 
 
 # General Settings
-figure.figsize      : 8., 6. #6.4, 4.4
+figure.figsize      : 7., 6. #6.4, 4.4
 figure.facecolor    : white
 text.color          : .1
 

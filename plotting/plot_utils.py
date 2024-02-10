@@ -134,3 +134,7 @@ def useEnvelope(up, down):
                 up[i] = 1   
 
 
+def make_unit_vector(vec):
+    magnitude = np.linalg.norm(vec)
+    vec /= magnitude
+    return vec

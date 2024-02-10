@@ -17,7 +17,7 @@ import mplhep as hep
 import json
 matplotlib.use('agg')
 import tqdm
-plt.style.use(hep.style.CMS)
+#plt.style.use(hep.style.CMS)
 import argparse, csv
 from matplotlib import gridspec
 from plot_utils import *
@@ -30,6 +30,7 @@ import matplotlib.cm as cm
 
 plt.style.use('/afs/cern.ch/user/j/jekrupa/public/rs3l/plotting/rs3l.mplstyle')
 
+print(plt.rcParams["figure.figsize"])
 
 which_sig_effs = [0.9,0.8,0.7,0.6,0.5]
 
@@ -60,7 +61,7 @@ os.system(f"mkdir /eos/project/c/contrast/public/cl/www/analysis/dec23/{training
 os.system(f"cp /eos/project/c/contrast/public/cl/www/index.php /eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/index.php")
 
 index_to_feat = {
-    4 : "NN feature 4",
+    4 : "RS3L feature 4",
 }
 
 label_dict = {
@@ -76,7 +77,6 @@ var_label_to_name = {
    2 : "fsrRenLo",
    3 : "herwig",
 }
-
 color_palette = {
     "q" : "lightcoral",
     "c" : "lightblue",
@@ -350,8 +350,10 @@ def plot_ratio(axis,process1,variation1,process2,variation2,variable,binedges,co
 
 #fig = plt.figure(figsize=(8,6))
 fig = plt.figure()
+print(plt.rcParams["figure.figsize"])
 ax = plt.subplot(gs[0])
 ax_ratio1 = plt.subplot(gs[1])
+print(plt.rcParams["figure.figsize"])
 ax_ratio2 = plt.subplot(gs[2])
 ax_ratio3 = plt.subplot(gs[3])
 ax_ratio4 = plt.subplot(gs[4])
@@ -454,10 +456,11 @@ ylabel = ax.get_yaxis().get_label()
 x, y = ylabel.get_position()
 ylabel.set_position((x, y - 0.15))  # You can adjust the 0.1 to whatever works best
 
-ax.legend(loc=(0.2,0.05),ncol=2,)
+ax.legend(loc=(0.165,0.05),ncol=2,)
 
 plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{label}.png",dpi=300,bbox_inches='tight')
 plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{label}.pdf",dpi=300,bbox_inches='tight')
+
 
 if args.is_n2:
     get_tpr_fpr()

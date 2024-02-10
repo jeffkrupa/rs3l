@@ -14,7 +14,7 @@ from collections import OrderedDict
 plt.style.use(hep.style.CMS)
 plt.style.use('/afs/cern.ch/user/j/jekrupa/public/rs3l/plotting/rs3l.mplstyle')
 
-add_n2 = False
+add_n2 = True
 basepath = "/eos/project/c/contrast/public/cl/www/analysis/dec23"
 which_sig_effs = [0.3, 0.5, 0.7]
 print("TEST")
@@ -24,7 +24,7 @@ plot_A = {
 }
 
 plot_B = {
-    "Fully-supervised (8M, seed)" : ["Graph-ntrain=8e6,nval=2e6,augs=0,fully-supervised,floating_weights,onelayerMLP,h_qcd,COMPLETED/",],#"Graph-ntrain=8e6,nval=2e6,augs=0,fully-supervised,floating_weights,onelayerMLP,h_qcd,repeatedrun1,COMPLETED/"],
+    #"Fully-supervised (8M, seed)" : ["Graph-ntrain=8e6,nval=2e6,augs=0,fully-supervised,floating_weights,onelayerMLP,h_qcd,COMPLETED/",],#"Graph-ntrain=8e6,nval=2e6,augs=0,fully-supervised,floating_weights,onelayerMLP,h_qcd,repeatedrun1,COMPLETED/"],
     "Fully-supervised (8M)"       : ["Graph-ntrain=8e6,nval=2e6,augs=0123,fully-supervised,floating_weights,onelayerMLP,h_qcd,COMPLETED/"],
     #"Fully-supervised (6M)"      : ["Graph-ntrain=6e6,nval=2e6,augs=0123,fully-supervised,floating_weights,onelayerMLP,h_qcd,COMPLETED/", "Graph-ntrain=6e6,nval=2e6,augs=0123,fully-supervised,floating_weights,onelayerMLP,h_qcd,repeatedrun1,COMPLETED/", ], #"Graph-ntrain=6e6,nval=2e6,augs=0123,fully-supervised,floating_weights,onelayerMLP,h_qcd,repeatedrun2,COMPLETED/"],
     #"Fully-supervised (4M)"      : ["Graph-ntrain=4e6,nval=2e6,augs=0123,fully-supervised,floating_weights,onelayerMLP,h_qcd,COMPLETED/", ],#"Graph-ntrain=4e6,nval=2e6,augs=0123,fully-supervised,floating_weights,onelayerMLP,h_qcd,repeatedrun1,COMPLETED/", "Graph-ntrain=4e6,nval=2e6,augs=0123,fully-supervised,floating_weights,onelayerMLP,h_qcd,repeatedrun2,COMPLETED/"],
@@ -33,6 +33,9 @@ plot_B = {
 }
 
 
+plot_seed = {
+    "Fully-supervised (8M, seed)" : ["Graph-ntrain=8e6,nval=2e6,augs=0,fully-supervised,floating_weights,onelayerMLP,h_qcd,COMPLETED/",],#"Graph-ntrain=8e6,nval=2e6,augs=0,fully-supervised,floating_weights,onelayerMLP,h_qcd,repeatedrun1,COMPLETED/"],
+}
 plot_C = {
     "Fine-tuned (3M, floating)"  : ["Graph-ntrain=3e6,nval=2e6,augs=0123,fine-tuned,floating_weights,onelayerMLP,h_qcd,RS3Lbase=mar20_run0,COMPLETED/", "Graph-ntrain=3e6,nval=2e6,augs=0123,fine-tuned,floating_weights,onelayerMLP,h_qcd,RS3Lbase=mar20_run0,repeatedrun1,COMPLETED", "Graph-ntrain=3e6,nval=2e6,augs=0123,fine-tuned,floating_weights,onelayerMLP,h_qcd,RS3Lbase=mar20_run0,repeatedrun2,COMPLETED"],
     "Fine-tuned (1M, floating)"  : ["Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,floating_weights,onelayerMLP,h_qcd,RS3Lbase=mar20_run0,COMPLETED/", "Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,floating_weights,onelayerMLP,h_qcd,RS3Lbase=mar20_run0,repeatedrun1,COMPLETED", "Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,floating_weights,onelayerMLP,h_qcd,RS3Lbase=mar20_run0,repeatedrun2,COMPLETED"],
@@ -101,22 +104,22 @@ plot_J = {
 
 
 color_dict = {
-    "$\mathrm{N_2}$" : "#428257",
-    "Fully-supervised (8M)"     : "#191919",
+    "$\mathrm{N_2}$" : "limegreen",
+    "Fully-supervised (8M)"     : "darkblue",
     "Fully-supervised (8M, all augs)"     : "#404040",
     "Fully-supervised (8M, seed)"     : "#808080",
     "Fully-supervised (6M)"     : "#333333",
     "Fully-supervised (4M)"     : "#4C4C4C",
-    "Fully-supervised (3M)"     : "#808080",
-    "Fully-supervised (1M)"     : "#A6A6A6",
+    "Fully-supervised (3M)"     : "dodgerblue",
+    "Fully-supervised (1M)"     : "cyan",
     "Fine-tuned (1M, floating)" : "fuchsia",
-    "Fine-tuned (3M, floating)" : "indianred",
+    "Fine-tuned (3M, floating)" : "red",
     "Fine-tuned (3M, floating, seed)" : "indianred",
     "Fine-tuned (3M, floating, seed+FSR)" : "fuchsia",
     "Fine-tuned (3M, floating, all augs)" : "red",
     "Fine-tuned (1M on 5M RS3L)" : "fuchsia",
     "Fine-tuned (3M on 5M RS3L)" : "indianred",
-    "Fine-tuned (3M, fixed)"    : "steelblue",
+    "Fine-tuned (3M, fixed)"    : "pink",
     "Fine-tuned (3M, floating, 5layer)" : "red",
     "Fine-tuned (1M, floating, 5layer)" : "purple",
     "Fully-supervised W vs QCD (1M)" : "#808080",
@@ -192,7 +195,7 @@ def make_average_roc(plot_dict,title):
     sorted_handles, sorted_labels = zip(*sorted_handles_labels)
 
     # Create a new legend
-    ax.legend(sorted_handles, sorted_labels,fontsize=20)
+    ax.legend(sorted_handles, sorted_labels,fontsize=18.5, loc =(0.37,0.01))
 
     #plt.show()
     #plt.legend(fontsize=18)
@@ -205,8 +208,8 @@ def make_average_roc(plot_dict,title):
         ax.set_xlim([0.001,1.002])
     else:
         #ax.set_ylim([0.002,.07])
-        ax.set_ylim([0.0007,.07])
-        ax.set_xlim([0.25,1.03])
+        ax.set_ylim([0.0003,.07])
+        ax.set_xlim([0.15,1.03])
     ax.set_yscale('log')
     plt.savefig(f"{basepath}/plots/{title}_logy.png")
     plt.savefig(f"{basepath}/plots/{title}_logy.pdf")
@@ -318,8 +321,10 @@ def make_divergence_table(plot_dict, title):
         results = {"W": {}, "qcd": {}}
         results_std = {"W": {}, "qcd": {}}
     else:
-        results = {"higgs": {}, "qcd": {}, "combined" : {}}
-        results_std = {"higgs": {}, "qcd": {}, "combined" : {}}
+        #results = {"higgs": {}, "qcd": {}, "combined" : {}}
+        #results_std = {"higgs": {}, "qcd": {}, "combined" : {}}
+        results = { "combined" : {}}
+        results_std = { "combined" : {}}
    
     for label, csv_paths in plot_dict.items():
         for iprocess in results.keys():
@@ -351,12 +356,12 @@ def make_divergence_table(plot_dict, title):
         for iprocess in results.keys():
             results[iprocess][r"$\mathrm{N_{2}}$"] = {}
             for ivariation in ["seed", "fsrRenHi", "fsrRenLo", "herwig"]:
-                if "combined" in iprocess:
+                if "combined" not in iprocess:
                     arr_nom = pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/{iprocess}_nominal_n2.csv")["val"].to_numpy()        
                     arr_var = pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/{iprocess}_{ivariation}_n2.csv")["val"].to_numpy()
                 else:        
-                    arr_nom = pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/higgs_nominal_n2.csv")["val"].to_numpy() + pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/qcd_nominal_n2.csv")["val"].to_numpy()        
-                    arr_var = pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/higgs_{ivariation}_n2.csv")["val"].to_numpy() + pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/qcd_{ivariation}_n2.csv")["val"].to_numpy()        
+                    arr_nom = np.concatenate((pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/higgs_nominal_n2.csv")["val"].to_numpy(), pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/qcd_nominal_n2.csv")["val"].to_numpy()))        
+                    arr_var = np.concatenate((pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/higgs_{ivariation}_n2.csv")["val"].to_numpy() , pd.read_csv(f"{basepath}/Graph-ntrain=1e6,nval=2e6,augs=0123,fine-tuned,fixed_weights,onelayerMLP,{training_label},RS3Lbase=mar20_run0,COMPLETED/qcd_{ivariation}_n2.csv")["val"].to_numpy()))        
                 ws_distance = wasserstein_distance(arr_nom, arr_var) 
                 results[iprocess][r"$\mathrm{N_{2}}$"][ivariation] = ws_distance
     def to_latex_scientific_notation(num):
@@ -446,18 +451,16 @@ def make_divergence_table(plot_dict, title):
         print(latex_table_with_caption)
     print(latex_tables)
     return latex_tables
-print("A")
 
-#make_divergence_table(OrderedDict({**plot_A,**plot_B}),"A")
-#print("B")
+make_divergence_table(OrderedDict({**plot_A,**plot_B}),"A")
+make_average_roc(OrderedDict({**plot_A,**plot_B}),"A")
+make_mistag_table(OrderedDict({**plot_A,**plot_B}),"A")
 
-#make_average_roc(OrderedDict({**plot_A,**plot_B}),"A")
-#print("C")
-
-#make_mistag_table(OrderedDict({**plot_A,**plot_B}),"A")
-
-make_mistag_table(plot_J,"J")
-make_divergence_table(plot_J,"J")
+make_divergence_table(OrderedDict({**plot_A,**plot_B,**plot_seed}),"Awithseed")
+make_average_roc(OrderedDict({**plot_A,**plot_B,**plot_seed}),"Awithseed")
+make_mistag_table(OrderedDict({**plot_A,**plot_B,**plot_seed}),"Awithseed")
+#make_mistag_table(plot_J,"J")
+#make_divergence_table(plot_J,"J")
 #make_average_roc(plot_J,"J")
 
 #make_average_roc({**plot_F,**plot_G},"WvsQCD")

@@ -57,7 +57,8 @@ elif is_wqcd:
    sig_name = "W"
    bkg_name = "qcd"
 
-elif is_hqcd:
+#elif is_hqcd:
+else:
    sig_name = "higgs"
    bkg_name = "qcd"
 
@@ -89,6 +90,20 @@ var_label_to_name = {
    2 : "fsrRenLo",
    3 : "herwig",
 }
+color_palette = {
+    "q" : "lightcoral",
+    "c" : "lightblue",
+    "b" : "lightgreen",
+    "H" : "magenta",
+    "g(qq)" : "red",
+    "g(cc)" : "blue",
+    "g(bb)" : "green",
+    "g(gg)" : "orange",
+    "Z(bb)" : "dimgrey",
+    "Z(qq)" : "lightgrey",
+}
+
+
 whichfeat = 999
 if is_n2:
     whichfeat = 'n2'
@@ -120,21 +135,26 @@ def read_files(process,variation,variable):
                 vartype = f['jet_vartype'][()]
                 sel = (vartype==variation) 
                 jettype = f['jet_type'][()]
-                if is_wz:
-                    if "W" in process:
-                        sel &= (jettype==11)
-                    elif "Z" in process:
-                        sel &= (jettype==10)
-                if is_wqcd:
-                    if "W" in process:
-                        sel &= (jettype==11)
-                    elif "qcd" in process:
-                        sel &= (jettype!=11)
+
+
+                if type(process) == int:
+                    sel &= (jettype==process)
                 else:
-                    if "higgs" in process:
-                        sel &= (jettype==4) 
-                    elif "qcd" in process: 
-                        sel &= (jettype!=4) 
+                    if is_wz:
+                        if "W" in process:
+                            sel &= (jettype==11)
+                        elif "Z" in process:
+                            sel &= (jettype==10)
+                    elif is_wqcd:
+                        if "W" in process:
+                            sel &= (jettype==11)
+                        elif "qcd" in process:
+                            sel &= (jettype!=11)
+                    else:
+                        if "higgs" in process:
+                            sel &= (jettype==4) 
+                        elif "qcd" in process: 
+                            sel &= (jettype!=4) 
                         
                 feat = feat[sel]
                 feat = np.expand_dims(feat,axis=-1)
@@ -349,8 +369,8 @@ def plot_ratio(axis,process1,variation1,process2,variation2,variable,binedges,co
         #plot_binned_data(axis, bins, lower, histtype="step",stacked=False,color='white',linewidth=1.6,rwidth=2)
     axis.text(0.03,0.7,text,transform=axis.transAxes,fontsize=10)
 
-fig = plt.figure(figsize=(8,6))
-
+#fig = plt.figure(figsize=(8,6))
+fig = plt.figure()
 ax = plt.subplot(gs[0])
 ax_ratio1 = plt.subplot(gs[1])
 ax_ratio2 = plt.subplot(gs[2])
@@ -379,16 +399,19 @@ if which_qcd != 'all':
     qcd_legend_label += " {label_dict[which_qcd]}"
 NBINS=30
 
-plot(ax,bkg_name,-1,whichfeat,[0.05,0.5,30],'steelblue',label_dict[bkg_name])
-plot(ax,sig_name,-1,whichfeat,[0.05,0.5,30],'magenta',label_dict[sig_name])
-plot(ax,bkg_name,0,whichfeat,[0.05,0.5,30],'yellow',0,False)
-plot(ax,sig_name,0,whichfeat,[0.05,0.5,30],'yellow',0,False)
-plot(ax,bkg_name,1,whichfeat,[0.05,0.5,30],'yellow','fsrRenHi',False)
-plot(ax,bkg_name,2,whichfeat,[0.05,0.5,30],'yellow','fsrRenLo',False)
-plot(ax,sig_name,1,whichfeat,[0.05,0.5,30],'yellow','fsrRenHi',False)
-plot(ax,sig_name,2,whichfeat,[0.05,0.5,30],'yellow','fsrRenLo',False)
-plot(ax,bkg_name,3,whichfeat,[0.05,0.5,30],'yellow','herwig',False)
-plot(ax,sig_name,3,whichfeat,[0.05,0.5,30],'yellow','herwig',False)
+for ip, p in [(1, "q"), (2,"c"), (3,"b"), (4,"H"), (5,"g(qq)"), (6,"g(cc)"), (7,"g(bb)"),(8,"g(gg)")]:
+    plot(ax,ip,-1,whichfeat,[0.05,0.5,30],color_palette[p],p)
+
+plot(ax,bkg_name,-1,whichfeat,[0.05,0.5,30],'steelblue',label_dict[bkg_name],show=False)
+plot(ax,sig_name,-1,whichfeat,[0.05,0.5,30],'magenta',label_dict[sig_name],show=False)
+plot(ax,bkg_name,0,whichfeat,[0.05,0.5,30],'yellow',0,False,)
+plot(ax,sig_name,0,whichfeat,[0.05,0.5,30],'yellow',0,False,)
+plot(ax,bkg_name,1,whichfeat,[0.05,0.5,30],'yellow','fsrRenHi',False,)
+plot(ax,bkg_name,2,whichfeat,[0.05,0.5,30],'yellow','fsrRenLo',False,)
+plot(ax,sig_name,1,whichfeat,[0.05,0.5,30],'yellow','fsrRenHi',False,)
+plot(ax,sig_name,2,whichfeat,[0.05,0.5,30],'yellow','fsrRenLo',False,)
+plot(ax,bkg_name,3,whichfeat,[0.05,0.5,30],'yellow','herwig',False,)
+plot(ax,sig_name,3,whichfeat,[0.05,0.5,30],'yellow','herwig',False,)
 
 
 plot_ratio(ax_ratio1,bkg_name,-1,bkg_name,0,whichfeat,[0.05,0.5,NBINS],'springgreen',f"seed [{label_dict[bkg_name]}]")
@@ -451,7 +474,8 @@ ylabel = ax.get_yaxis().get_label()
 x, y = ylabel.get_position()
 ylabel.set_position((x, y - 0.15))  # You can adjust the 0.1 to whatever works best
 
-ax.legend(loc=(0.41,0.65))
+ax.legend(loc=(0.5,0.05),ncol=2,)
+#ax.legend(loc=(0.41,0.65))
 
 plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{label}.png",dpi=300,bbox_inches='tight')
 plt.savefig(f"/eos/project/c/contrast/public/cl/www/analysis/dec23/{training}/{label}.pdf",dpi=300,bbox_inches='tight')
